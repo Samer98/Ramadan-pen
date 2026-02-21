@@ -290,6 +290,34 @@
         bottom: 100px;
         text-align: center;
       }
+      #share-box.visible {
+        top: 50%;
+        bottom: auto;
+        transform: translate(-50%, -50%);
+        max-width: min(340px, calc(100vw - 32px));
+        padding: 20px;
+        font-size: 14px;
+      }
+      #share-box.visible .share-label {
+        font-size: 15px;
+        margin-bottom: 10px;
+      }
+      #share-box.visible .share-link {
+        font-size: 13px;
+        padding: 8px 10px;
+        margin-bottom: 14px;
+      }
+      #share-box.visible .share-actions {
+        flex-direction: column;
+        align-items: stretch;
+        gap: 12px;
+      }
+      #share-box.visible button {
+        padding: 16px 24px;
+        min-height: 52px;
+        font-size: 18px;
+        border-radius: 10px;
+      }
       #share-box .share-actions {
         justify-content: center;
       }
