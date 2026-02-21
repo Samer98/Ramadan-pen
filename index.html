@@ -6,15 +6,258 @@
   <script src="https://cdn.jsdelivr.net/npm/@mediapipe/drawing_utils/drawing_utils.js" crossorigin="anonymous"></script>
   <script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands/hands.js" crossorigin="anonymous"></script>
   <script src="https://cdn.jsdelivr.net/npm/tesseract.js@4/dist/tesseract.min.js" crossorigin="anonymous"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js" crossorigin="anonymous"></script>
   <style>
     body { margin: 0; background: #050301; overflow: hidden; }
     video { display: none; }
     canvas { width: 100%; height: 100%; transform: scaleX(-1); position: absolute; z-index: 1; }
+    #recording-indicator {
+      display: none;
+      position: fixed;
+      bottom: 16px;
+      right: 16px;
+      z-index: 10;
+      padding: 8px 12px;
+      border-radius: 8px;
+      background: rgba(0, 0, 0, 0.75);
+      color: #fff;
+      font-family: sans-serif;
+      font-size: 14px;
+      align-items: center;
+      gap: 8px;
+    }
+    #recording-indicator.visible { display: flex; }
+    #recording-indicator .rec-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: #e53935;
+      flex-shrink: 0;
+    }
+    #recording-indicator.saved .rec-dot,
+    #recording-indicator.countdown .rec-dot,
+    #recording-indicator.error .rec-dot { display: none; }
+    #share-box {
+      display: none;
+      position: fixed;
+      bottom: 60px;
+      right: 16px;
+      z-index: 10;
+      max-width: 320px;
+      padding: 12px;
+      border-radius: 8px;
+      background: rgba(0, 0, 0, 0.9);
+      color: #fff;
+      font-family: sans-serif;
+      font-size: 12px;
+    }
+    #share-box.visible { display: block; }
+    #share-box .share-label { margin-bottom: 6px; color: #F5D061; }
+    #share-box .share-link {
+      word-break: break-all;
+      background: rgba(255,255,255,0.1);
+      padding: 6px 8px;
+      border-radius: 4px;
+      margin-bottom: 8px;
+      font-size: 11px;
+    }
+    #share-box button {
+      background: #F5D061;
+      color: #050301;
+      border: none;
+      padding: 6px 12px;
+      border-radius: 6px;
+      cursor: pointer;
+      font-weight: 600;
+    }
+    #share-box .share-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+    #share-box button:hover { opacity: 0.9; }
+    #watch-page {
+      display: none;
+      position: fixed;
+      inset: 0;
+      z-index: 200;
+      background: #050301;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 24px;
+      box-sizing: border-box;
+    }
+    #watch-page.visible { display: flex; }
+    #watch-page video {
+      display: block;
+      max-width: 100%;
+      max-height: 85vh;
+      border-radius: 8px;
+      box-shadow: 0 8px 32px rgba(0,0,0,0.5);
+    }
+    #watch-page .watch-title {
+      color: #F5D061;
+      font-family: sans-serif;
+      margin-top: 16px;
+      font-size: 18px;
+    }
+    #watch-page .watch-back {
+      margin-top: 20px;
+      background: #F5D061;
+      color: #050301;
+      border: none;
+      padding: 10px 20px;
+      border-radius: 8px;
+      cursor: pointer;
+      font-weight: 600;
+      font-size: 14px;
+    }
+    #watch-page .watch-back:hover { opacity: 0.9; }
+    #watch-page .watch-error {
+      color: #e53935;
+      font-family: sans-serif;
+      margin-top: 16px;
+    }
+    #instructions-overlay {
+      position: fixed;
+      inset: 0;
+      z-index: 100;
+      background: rgba(5, 3, 1, 0.92);
+      color: #F5D061;
+      font-family: sans-serif;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 24px;
+      box-sizing: border-box;
+    }
+    #instructions-overlay.hidden { display: none; }
+    #instructions-overlay h2 {
+      margin: 0 0 16px 0;
+      font-size: 1.5rem;
+      font-weight: 600;
+    }
+    #instructions-overlay ul {
+      text-align: left;
+      max-width: 320px;
+      margin: 0 0 20px 0;
+      padding-left: 20px;
+      line-height: 1.7;
+      font-size: 15px;
+      color: rgba(255,255,255,0.9);
+    }
+    #instructions-overlay .hint { font-size: 13px; color: rgba(255,255,255,0.7); margin-bottom: 20px; }
+    #instructions-overlay button {
+      background: #F5D061;
+      color: #050301;
+      border: none;
+      padding: 12px 24px;
+      border-radius: 8px;
+      cursor: pointer;
+      font-weight: 600;
+      font-size: 16px;
+    }
+    #instructions-overlay button:hover { opacity: 0.9; }
+    #draw-mode-btn {
+      display: none;
+      position: fixed;
+      bottom: 16px;
+      left: 16px;
+      z-index: 10;
+      width: 52px;
+      height: 52px;
+      border-radius: 50%;
+      border: none;
+      background: rgba(245, 208, 97, 0.25);
+      color: #F5D061;
+      font-size: 22px;
+      cursor: pointer;
+      box-shadow: 0 2px 12px rgba(0,0,0,0.4);
+      transition: background 0.2s, transform 0.1s;
+      -webkit-tap-highlight-color: transparent;
+    }
+    #draw-mode-btn:active { transform: scale(0.95); }
+    #draw-mode-btn.active {
+      background: #F5D061;
+      color: #050301;
+    }
+    @media (max-width: 768px), (hover: none) {
+      #draw-mode-btn { display: flex; align-items: center; justify-content: center; }
+    }
   </style>
 </head>
 <body>
+  <div id="instructions-overlay" aria-label="How to use">
+    <h2>Ramadan Pen — How to use</h2>
+    <ul>
+      <li><strong>Draw:</strong> On desktop hold <kbd>Shift</kbd>; on mobile tap the <strong>pen button</strong> (bottom-left) to turn drawing on or off, then move your finger in front of the camera.</li>
+      <li><strong>Clear & cancel:</strong> Press <kbd>Space</kbd> to clear the canvas and cancel the current recording.</li>
+      <li><strong>Recording:</strong> Recording starts when you draw and stops automatically after a short idle. Each recording gets a unique link you can share.</li>
+      <li><strong>Share:</strong> After a recording is saved, use Share, Copy link, or Download. Anyone who opens the link can watch the video.</li>
+    </ul>
+    <p class="hint">Make sure the camera can see your hand.</p>
+    <button type="button" id="dismiss-instructions">Got it — Start</button>
+  </div>
   <video id="vid"></video>
   <canvas id="c"></canvas>
+  <div id="recording-indicator" aria-live="polite">
+    <span class="rec-dot"></span>
+    <span class="rec-text"></span>
+  </div>
+  <div id="share-box" aria-live="polite">
+    <div class="share-label">Shareable link (each recording has a unique URL):</div>
+    <div class="share-link" id="share-link-text"></div>
+    <div class="share-actions">
+      <button type="button" id="share-btn">Share</button>
+      <button type="button" id="copy-share-btn">Copy link</button>
+      <button type="button" id="download-btn">Download</button>
+    </div>
+  </div>
+  <button type="button" id="draw-mode-btn" aria-pressed="false" aria-label="Toggle draw mode">✏️</button>
+  <div id="watch-page" aria-label="Watch recording">
+    <video id="watch-video" controls playsinline></video>
+    <div class="watch-title">Ramadan Pen recording</div>
+    <button type="button" class="watch-back" id="watch-back-btn">Back to drawing</button>
+    <div class="watch-error" id="watch-error"></div>
+  </div>
+  <script>
+    var SUPABASE_URL = 'https://lhryqyjghqcmkzxaygnm.supabase.co';
+    var SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImxocnlxeWpnaHFjbWt6eGF5Z25tIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzE3MDQ4NDUsImV4cCI6MjA4NzI4MDg0NX0.2GC42G98zerQ1VoJ90W5828x-6MfzZaYV_cz60-vOeE';
+    var supabase = window.supabase ? window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY) : null;
+    var STORAGE_BUCKET = 'recordings';
+  </script>
+  <script>
+    (function checkWatchMode() {
+      var params = new URLSearchParams(location.search);
+      var videoId = params.get('v');
+      if (!videoId) return;
+      var watchPage = document.getElementById('watch-page');
+      var watchVideo = document.getElementById('watch-video');
+      var watchError = document.getElementById('watch-error');
+      var watchBackBtn = document.getElementById('watch-back-btn');
+      if (!watchPage || !watchVideo) return;
+      watchPage.classList.add('visible');
+      document.body.style.overflow = 'hidden';
+      var instructionsOverlay = document.getElementById('instructions-overlay');
+      if (instructionsOverlay) instructionsOverlay.classList.add('hidden');
+      var publicUrl = supabase
+        ? supabase.storage.from(STORAGE_BUCKET).getPublicUrl(videoId).data.publicUrl
+        : '';
+      if (!publicUrl) {
+        watchError.textContent = 'Cannot load video.';
+        return;
+      }
+      watchVideo.src = publicUrl;
+      watchVideo.onloadeddata = function() { watchError.textContent = ''; };
+      watchVideo.onerror = function() {
+        watchError.textContent = 'Video could not be loaded. It may have been removed or the link is invalid.';
+      };
+      if (watchBackBtn) {
+        watchBackBtn.onclick = function() {
+          history.replaceState({}, '', location.pathname);
+          location.reload();
+        };
+      }
+    })();
+  </script>
   <script>
     var vid = document.getElementById('vid');
     var c = document.getElementById('c');
@@ -22,10 +265,226 @@
     var arr = [];
     var cur = [];
     var shift = false;
+    var drawModeEnabled = false;
     var draw = false;
     var sx = null;
     var sy = null;
     var crescentUntil = 0;
+
+    var isRecording = false;
+    var recordingStream = null;
+    var mediaRecorder = null;
+    var recordingChunks = [];
+    var idleCountdownTimer = null;
+    var idleCountdownSeconds = 0;
+    var savedTimeout = null;
+    var recIndicator = null;
+    var recText = null;
+
+    function updateIndicator(mode, text) {
+      if (!recIndicator) recIndicator = document.getElementById('recording-indicator');
+      if (!recText) recText = recIndicator.querySelector('.rec-text');
+      recIndicator.className = 'visible ' + (mode || '');
+      recText.textContent = text || '';
+    }
+
+    function hideIndicator() {
+      if (!recIndicator) recIndicator = document.getElementById('recording-indicator');
+      recIndicator.classList.remove('visible');
+    }
+
+    var shareBox = null;
+    var shareLinkText = null;
+    var shareBtn = null;
+    var copyShareBtn = null;
+    var downloadBtn = null;
+    function showShareBox(shareUrl, filename, publicUrl) {
+      if (!shareBox) shareBox = document.getElementById('share-box');
+      if (!shareLinkText) shareLinkText = document.getElementById('share-link-text');
+      if (!shareBtn) shareBtn = document.getElementById('share-btn');
+      if (!copyShareBtn) copyShareBtn = document.getElementById('copy-share-btn');
+      if (!downloadBtn) downloadBtn = document.getElementById('download-btn');
+      if (shareUrl) {
+        shareLinkText.textContent = shareUrl;
+        shareBox.classList.add('visible');
+        shareBtn.onclick = function() {
+          if (navigator.share && navigator.canShare && navigator.canShare({ url: shareUrl })) {
+            navigator.share({ title: 'Ramadan Pen recording', url: shareUrl }).catch(function() {
+              copyToClipboard(shareUrl);
+            });
+          } else {
+            copyToClipboard(shareUrl);
+          }
+        };
+        copyShareBtn.onclick = function() {
+          copyToClipboard(shareUrl);
+        };
+        copyShareBtn.textContent = 'Copy link';
+        downloadBtn.onclick = function() {
+          if (!publicUrl) return;
+          fetch(publicUrl).then(function(r) { return r.blob(); }).then(function(blob) {
+            var a = document.createElement('a');
+            a.href = URL.createObjectURL(blob);
+            a.download = filename || 'recording.webm';
+            a.click();
+            URL.revokeObjectURL(a.href);
+          }).catch(function() {
+            window.open(publicUrl, '_blank');
+          });
+        };
+      } else {
+        shareBox.classList.remove('visible');
+      }
+    }
+    function copyToClipboard(text) {
+      navigator.clipboard.writeText(text).then(function() {
+        if (copyShareBtn) {
+          copyShareBtn.textContent = 'Copied!';
+          setTimeout(function() { if (copyShareBtn) copyShareBtn.textContent = 'Copy link'; }, 2000);
+        }
+      });
+    }
+
+    (function initInstructions() {
+      var overlay = document.getElementById('instructions-overlay');
+      var btn = document.getElementById('dismiss-instructions');
+      if (overlay && btn) {
+        btn.onclick = function() {
+          overlay.classList.add('hidden');
+        };
+      }
+    })();
+
+    (function initDrawModeBtn() {
+      var btn = document.getElementById('draw-mode-btn');
+      if (!btn) return;
+      btn.onclick = function() {
+        drawModeEnabled = !drawModeEnabled;
+        btn.classList.toggle('active', drawModeEnabled);
+        btn.setAttribute('aria-pressed', drawModeEnabled ? 'true' : 'false');
+        btn.setAttribute('aria-label', drawModeEnabled ? 'Drawing on — tap to turn off' : 'Drawing off — tap to draw');
+      };
+    })();
+
+    function generateUUID() {
+      if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
+        return crypto.randomUUID();
+      }
+      return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
+        var r = Math.random() * 16 | 0, v = c === 'x' ? r : (r & 0x3 | 0x8);
+        return v.toString(16);
+      });
+    }
+
+    function discardCurrentRecording() {
+      if (!isRecording || !mediaRecorder) return;
+      if (mediaRecorder.state === 'recording') {
+        mediaRecorder.onstop = null;
+        mediaRecorder.stop();
+      }
+      mediaRecorder = null;
+      if (recordingStream) {
+        recordingStream.getTracks().forEach(function(t) { t.stop(); });
+        recordingStream = null;
+      }
+      recordingChunks = [];
+      isRecording = false;
+      cancelIdleStopCountdown();
+      hideIndicator();
+      showShareBox(null);
+    }
+
+    function startScreenRecording() {
+      if (!window.MediaRecorder || (typeof c.captureStream !== 'function')) {
+        updateIndicator('error', 'Not supported');
+        setTimeout(hideIndicator, 3000);
+        return;
+      }
+      recordingStream = c.captureStream(15);
+      recordingChunks = [];
+      var options = { mimeType: 'video/webm;codecs=vp9', videoBitsPerSecond: 2500000 };
+      if (!MediaRecorder.isTypeSupported(options.mimeType)) {
+        options = { mimeType: 'video/webm', videoBitsPerSecond: 2500000 };
+      }
+      mediaRecorder = new MediaRecorder(recordingStream, options);
+      mediaRecorder.ondataavailable = function(e) { if (e.data.size > 0) recordingChunks.push(e.data); };
+      mediaRecorder.onstop = function() {
+        if (recordingStream) {
+          recordingStream.getTracks().forEach(function(t) { t.stop(); });
+          recordingStream = null;
+        }
+        var blob = new Blob(recordingChunks, { type: 'video/webm' });
+        var uuid = generateUUID();
+        var filename = 'recording-' + uuid + '.webm';
+        isRecording = false;
+        updateIndicator('saved', 'Saving…');
+        if (supabase) {
+          supabase.storage.from(STORAGE_BUCKET).upload(filename, blob, { contentType: 'video/webm', upsert: false })
+            .then(function(uploadRes) {
+              if (uploadRes.error) {
+                updateIndicator('error', 'Upload failed');
+                showShareBox(null);
+                if (savedTimeout) clearTimeout(savedTimeout);
+                savedTimeout = setTimeout(function() { hideIndicator(); savedTimeout = null; }, 3000);
+                return;
+              }
+              var publicUrl = supabase.storage.from(STORAGE_BUCKET).getPublicUrl(filename).data.publicUrl;
+              var shareUrl = location.origin + location.pathname + '?v=' + encodeURIComponent(filename);
+              updateIndicator('saved', 'Saved & shareable');
+              showShareBox(shareUrl, filename, publicUrl);
+              if (savedTimeout) clearTimeout(savedTimeout);
+              savedTimeout = setTimeout(function() { hideIndicator(); savedTimeout = null; }, 2500);
+            })
+            .catch(function() {
+              updateIndicator('error', 'Upload failed');
+              showShareBox(null);
+              if (savedTimeout) clearTimeout(savedTimeout);
+              savedTimeout = setTimeout(function() { hideIndicator(); savedTimeout = null; }, 3000);
+            });
+        } else {
+          var url = URL.createObjectURL(blob);
+          var a = document.createElement('a');
+          a.href = url;
+          a.download = filename;
+          a.click();
+          URL.revokeObjectURL(url);
+          updateIndicator('saved', 'Saved (download only)');
+          showShareBox(null);
+          if (savedTimeout) clearTimeout(savedTimeout);
+          savedTimeout = setTimeout(function() { hideIndicator(); savedTimeout = null; }, 1500);
+        }
+      };
+      mediaRecorder.start(200);
+      isRecording = true;
+      cancelIdleStopCountdown();
+      updateIndicator('recording', 'Recording');
+    }
+
+    function scheduleRecordingStopAfterIdle() {
+      if (!isRecording || !mediaRecorder || mediaRecorder.state === 'inactive') return;
+      if (idleCountdownTimer) return;
+      idleCountdownSeconds = 5;
+      updateIndicator('countdown', 'Stopping in ' + idleCountdownSeconds + 's');
+      idleCountdownTimer = setInterval(function() {
+        idleCountdownSeconds--;
+        if (idleCountdownSeconds <= 0) {
+          clearInterval(idleCountdownTimer);
+          idleCountdownTimer = null;
+          if (mediaRecorder && mediaRecorder.state === 'recording') mediaRecorder.stop();
+          return;
+        }
+        updateIndicator('countdown', 'Stopping in ' + idleCountdownSeconds + 's');
+      }, 1000);
+    }
+
+    function cancelIdleStopCountdown() {
+      if (idleCountdownTimer) {
+        clearInterval(idleCountdownTimer);
+        idleCountdownTimer = null;
+      }
+      idleCountdownSeconds = 0;
+      if (isRecording) updateIndicator('recording', 'Recording');
+    }
 
     function detectDrawnShape(points) {
       if (!points || points.length < 3) {
@@ -173,7 +632,11 @@
 
     window.onkeydown = function(e) {
       if (e.key == 'Shift') shift = true;
-      if (e.code == 'Space') arr = [];
+      if (e.code == 'Space') {
+        e.preventDefault();
+        arr = [];
+        discardCurrentRecording();
+      }
     }
     
     window.onkeyup = function(e) {
@@ -226,20 +689,23 @@
 
         ctx.beginPath();
         ctx.arc(sx, sy, 6, 0, 2 * Math.PI);
-        if (shift) { 
+        var canDraw = shift || drawModeEnabled;
+        if (canDraw) { 
           ctx.fillStyle = '#FFFFFF'; 
         } else { 
           ctx.fillStyle = 'rgba(245, 208, 97, 0.4)'; 
         }
         ctx.fill();
 
-        if (shift) {
+        if (canDraw) {
           if (!draw) {
             draw = true;
             cur = [];
             arr.push(cur);
           }
           cur.push({x: sx, y: sy});
+          cancelIdleStopCountdown();
+          if (!isRecording) startScreenRecording();
         } else {
           if (draw && cur.length > 0) {
             var shape = detectDrawnShape(cur);
@@ -247,10 +713,12 @@
             recognizeWords();
           }
           draw = false;
+          if (isRecording) scheduleRecordingStopAfterIdle();
         }
       } else {
         draw = false;
         sx = null;
+        if (isRecording) scheduleRecordingStopAfterIdle();
       }
     }
 
@@ -274,8 +742,10 @@
       width: 1280, 
       height: 720
     });
-    
-    cam.start();
+
+    if (!document.getElementById('watch-page').classList.contains('visible')) {
+      cam.start();
+    }
   </script>
 </body>
 </html>
