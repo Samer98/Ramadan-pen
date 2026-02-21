@@ -485,6 +485,7 @@
 
     var cameraStarted = false;
     var pendingCameraStart = null;
+    var countdownInProgress = false;
 
     (function initInstructions() {
       var overlay = document.getElementById('instructions-overlay');
@@ -493,7 +494,7 @@
         if (overlay && !overlay.classList.contains('hidden')) {
           overlay.classList.add('hidden');
         }
-        if (typeof pendingCameraStart === 'function') {
+        if (typeof pendingCameraStart === 'function' && !isMobile) {
           pendingCameraStart();
           pendingCameraStart = null;
         }
@@ -567,7 +568,10 @@
       btn.onclick = function() {
         if (isRecording) return;
         recordingRequestedByUser = true;
+        countdownInProgress = true;
+        updateStartRecordingButtonVisibility();
         if (isMobile) {
+          startCameraOnce();
           startRecordingWithCountdown();
         } else {
           startScreenRecording();
@@ -606,7 +610,7 @@
       if (!startRecordingBtn) startRecordingBtn = document.getElementById('start-recording-btn');
       if (!startRecordingBtn) return;
       var shareBox = document.getElementById('share-box');
-      var show = !isRecording && !(shareBox && shareBox.classList.contains('visible'));
+      var show = !isRecording && !countdownInProgress && !(shareBox && shareBox.classList.contains('visible'));
       if (show) startRecordingBtn.classList.add('visible'); else startRecordingBtn.classList.remove('visible');
     }
 
@@ -620,6 +624,7 @@
         sec--;
         if (sec <= 0) {
           countdownTimeoutIds = [];
+          countdownInProgress = false;
           if (btn) btn.disabled = false;
           hideIndicator();
           if (recordingRequestedByUser) startScreenRecording();
@@ -634,10 +639,12 @@
     function cancelStartRecordingCountdown() {
       countdownTimeoutIds.forEach(function(id) { clearTimeout(id); });
       countdownTimeoutIds = [];
+      countdownInProgress = false;
       recordingRequestedByUser = false;
       var btn = document.getElementById('start-recording-btn');
       if (btn) btn.disabled = false;
       hideIndicator();
+      updateStartRecordingButtonVisibility();
     }
     function discardCurrentRecording() {
       cancelStartRecordingCountdown();
@@ -662,8 +669,10 @@
 
     function startScreenRecording() {
       if (!recordingRequestedByUser) return;
+      countdownInProgress = false;
       if (!window.MediaRecorder || (typeof c.captureStream !== 'function')) {
         recordingRequestedByUser = false;
+        updateStartRecordingButtonVisibility();
         updateIndicator('error', 'Not supported');
         setTimeout(hideIndicator, 3000);
         return;
@@ -1026,7 +1035,7 @@
     }
 
     pendingCameraStart = startCameraOnce;
-    if (!document.getElementById('watch-page').classList.contains('visible')) {
+    if (!document.getElementById('watch-page').classList.contains('visible') && !isMobile) {
       if (document.getElementById('instructions-overlay').classList.contains('hidden')) {
         startCameraOnce();
       }
