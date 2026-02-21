@@ -104,9 +104,10 @@
     #start-recording-btn {
       display: none;
       position: fixed;
-      bottom: 24px;
-      left: 50%;
-      transform: translateX(-50%);
+      bottom: 20px;
+      right: 20px;
+      left: auto;
+      transform: none;
       z-index: 10;
       padding: 12px 24px;
       border-radius: 8px;
@@ -122,7 +123,7 @@
     }
     #start-recording-btn.visible { display: block; }
     #start-recording-btn:hover { opacity: 0.95; }
-    #start-recording-btn:active { transform: translateX(-50%) scale(0.98); }
+    #start-recording-btn:active { transform: scale(0.98); }
     #start-recording-btn:disabled { opacity: 0.7; cursor: not-allowed; }
     #watch-page {
       display: none;
@@ -268,8 +269,8 @@
         min-height: 80px;
         font-size: 18px;
         bottom: 24px;
-        left: 50%;
-        transform: translateX(-50%);
+        left: 20px;
+        transform: none;
       }
       #share-box {
         left: 50%;
@@ -284,6 +285,13 @@
       #stop-recording-btn {
         bottom: 24px;
       }
+      #start-recording-btn.visible {
+        display: flex !important;
+        bottom: 24px;
+        right: 20px;
+        left: auto;
+        transform: none;
+      }
       body.stop-recording-visible #clear-draw-btn {
         display: none !important;
       }
@@ -291,7 +299,7 @@
         display: none !important;
       }
       #start-recording-btn.mobile-visible.visible {
-        display: block !important;
+        display: flex !important;
       }
     }
   </style>
@@ -302,7 +310,7 @@
     <ul>
       <li><strong>Draw:</strong> Move your finger in front of the camera. <strong>Hold</strong> the screen (touch or click and hold) to pause drawing; <strong>release</strong> to draw again.</li>
       <li><strong>Clear & cancel:</strong> Press <kbd>Space</kbd> on desktop, or tap the <strong>Clear</strong> button on mobile.</li>
-      <li><strong>Recording:</strong> On mobile, tap <strong>Start recording</strong> first—you’ll have 3 seconds to get ready—then draw. On desktop, recording starts when you draw. It stops automatically after a short idle. Each recording gets a unique link you can share.</li>
+      <li><strong>Recording:</strong> Tap <strong>Start recording</strong> first—you’ll have 3 seconds to get ready—then draw. It stops automatically after a short idle. Each recording gets a unique link you can share.</li>
       <li><strong>Share:</strong> After a recording is saved, use Share, Copy link, or Download. Anyone who opens the link can watch the video.</li>
     </ul>
     <p class="hint">Make sure the camera can see your hand.</p>
@@ -554,7 +562,9 @@
       var btn = document.getElementById('start-recording-btn');
       if (!btn) return;
       btn.onclick = function() {
-        if (isMobile && !isRecording) startRecordingWithCountdown();
+        if (isRecording) return;
+        if (isMobile) startRecordingWithCountdown();
+        else startScreenRecording();
       };
     })();
 
@@ -587,7 +597,7 @@
     var countdownTimeoutIds = [];
     function updateStartRecordingButtonVisibility() {
       if (!startRecordingBtn) startRecordingBtn = document.getElementById('start-recording-btn');
-      if (!startRecordingBtn || !isMobile) return;
+      if (!startRecordingBtn) return;
       var shareBox = document.getElementById('share-box');
       var show = !isRecording && !(shareBox && shareBox.classList.contains('visible'));
       if (show) startRecordingBtn.classList.add('visible'); else startRecordingBtn.classList.remove('visible');
@@ -956,7 +966,6 @@
           }
           cur.push({x: sx, y: sy});
           cancelIdleStopCountdown();
-          if (!isRecording && cur.length >= 2 && !isMobile) startScreenRecording();
         } else {
           if (draw && cur.length > 0) {
             var shape = detectDrawnShape(cur);
