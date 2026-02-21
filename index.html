@@ -494,6 +494,7 @@
     var recordingChunks = [];
     var idleCountdownTimer = null;
     var idleCountdownSeconds = 0;
+    var hasDrawnDuringRecording = false;
     var savedTimeout = null;
     var recIndicator = null;
     var recText = null;
@@ -769,6 +770,7 @@
       }
       recordingChunks = [];
       isRecording = false;
+      hasDrawnDuringRecording = false;
       cancelIdleStopCountdown();
       hideIndicator();
       showShareBox(null);
@@ -843,6 +845,7 @@
       };
       mediaRecorder.start(200);
       isRecording = true;
+      hasDrawnDuringRecording = false;
       recordingRequestedByUser = false;
       cancelIdleStopCountdown();
       updateIndicator('recording', 'Recording');
@@ -852,6 +855,7 @@
 
     function scheduleRecordingStopAfterIdle() {
       if (!isRecording || !mediaRecorder || mediaRecorder.state === 'inactive') return;
+      if (!hasDrawnDuringRecording) return;
       if (idleCountdownTimer) return;
       idleCountdownSeconds = 5;
       updateIndicator('countdown', 'Stopping in ' + idleCountdownSeconds + 's');
@@ -1094,6 +1098,7 @@
             arr.push(cur);
           }
           cur.push({x: sx, y: sy});
+          if (isRecording) hasDrawnDuringRecording = true;
           cancelIdleStopCountdown();
         } else {
           if (draw && cur.length > 0) {
