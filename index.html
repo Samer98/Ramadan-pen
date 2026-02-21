@@ -156,31 +156,31 @@
       font-size: 16px;
     }
     #instructions-overlay button:hover { opacity: 0.9; }
-    #draw-mode-btn {
+    #clear-draw-btn {
       display: none;
       position: fixed;
       bottom: 16px;
       left: 16px;
       z-index: 10;
-      width: 52px;
+      min-width: 52px;
       height: 52px;
+      padding: 0 12px;
       border-radius: 50%;
       border: none;
-      background: rgba(245, 208, 97, 0.25);
-      color: #F5D061;
-      font-size: 22px;
+      background: rgba(229, 57, 53, 0.25);
+      color: #e53935;
+      font-family: sans-serif;
+      font-size: 14px;
+      font-weight: 600;
       cursor: pointer;
       box-shadow: 0 2px 12px rgba(0,0,0,0.4);
       transition: background 0.2s, transform 0.1s;
       -webkit-tap-highlight-color: transparent;
     }
-    #draw-mode-btn:active { transform: scale(0.95); }
-    #draw-mode-btn.active {
-      background: #F5D061;
-      color: #050301;
-    }
+    #clear-draw-btn:active { transform: scale(0.95); }
+    #clear-draw-btn:hover { background: rgba(229, 57, 53, 0.4); }
     @media (max-width: 768px), (hover: none) {
-      #draw-mode-btn { display: flex; align-items: center; justify-content: center; }
+      #clear-draw-btn { display: flex; align-items: center; justify-content: center; }
     }
   </style>
 </head>
@@ -188,8 +188,8 @@
   <div id="instructions-overlay" aria-label="How to use">
     <h2>Ramadan Pen — How to use</h2>
     <ul>
-      <li><strong>Draw:</strong> On desktop hold <kbd>Shift</kbd>; on mobile tap the <strong>pen button</strong> (bottom-left) to turn drawing on or off, then move your finger in front of the camera.</li>
-      <li><strong>Clear & cancel:</strong> Press <kbd>Space</kbd> to clear the canvas and cancel the current recording.</li>
+      <li><strong>Draw:</strong> Move your finger in front of the camera. <strong>Hold</strong> the screen (touch or click and hold) to pause drawing; <strong>release</strong> to draw again.</li>
+      <li><strong>Clear & cancel:</strong> Press <kbd>Space</kbd> on desktop, or tap the <strong>Clear</strong> button on mobile.</li>
       <li><strong>Recording:</strong> Recording starts when you draw and stops automatically after a short idle. Each recording gets a unique link you can share.</li>
       <li><strong>Share:</strong> After a recording is saved, use Share, Copy link, or Download. Anyone who opens the link can watch the video.</li>
     </ul>
@@ -211,7 +211,7 @@
       <button type="button" id="download-btn">Download</button>
     </div>
   </div>
-  <button type="button" id="draw-mode-btn" aria-pressed="false" aria-label="Toggle draw mode">✏️</button>
+  <button type="button" id="clear-draw-btn" aria-label="Clear drawing and cancel recording">Clear</button>
   <div id="watch-page" aria-label="Watch recording">
     <video id="watch-video" controls playsinline></video>
     <div class="watch-title">Ramadan Pen recording</div>
@@ -265,7 +265,7 @@
     var arr = [];
     var cur = [];
     var shift = false;
-    var drawModeEnabled = false;
+    var screenHeld = false;
     var draw = false;
     var sx = null;
     var sy = null;
@@ -355,14 +355,22 @@
       }
     })();
 
-    (function initDrawModeBtn() {
-      var btn = document.getElementById('draw-mode-btn');
+    (function initScreenHold() {
+      function setHeld(value) { screenHeld = value; }
+      document.addEventListener('touchstart', function(e) { e.preventDefault(); setHeld(true); }, { passive: false });
+      document.addEventListener('touchend', function() { setHeld(false); });
+      document.addEventListener('touchcancel', function() { setHeld(false); });
+      document.addEventListener('mousedown', function() { setHeld(true); });
+      document.addEventListener('mouseup', function() { setHeld(false); });
+      document.addEventListener('mouseleave', function() { setHeld(false); });
+    })();
+
+    (function initClearDrawBtn() {
+      var btn = document.getElementById('clear-draw-btn');
       if (!btn) return;
       btn.onclick = function() {
-        drawModeEnabled = !drawModeEnabled;
-        btn.classList.toggle('active', drawModeEnabled);
-        btn.setAttribute('aria-pressed', drawModeEnabled ? 'true' : 'false');
-        btn.setAttribute('aria-label', drawModeEnabled ? 'Drawing on — tap to turn off' : 'Drawing off — tap to draw');
+        arr = [];
+        discardCurrentRecording();
       };
     })();
 
@@ -689,7 +697,7 @@
 
         ctx.beginPath();
         ctx.arc(sx, sy, 6, 0, 2 * Math.PI);
-        var canDraw = shift || drawModeEnabled;
+        var canDraw = (shift || !screenHeld);
         if (canDraw) { 
           ctx.fillStyle = '#FFFFFF'; 
         } else { 
