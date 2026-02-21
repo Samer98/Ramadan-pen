@@ -24,6 +24,44 @@
     var draw = false;
     var sx = null;
     var sy = null;
+    var crescentUntil = 0;
+
+    function drawCrescent(ctx, cx, cy, size) {
+      size = size || 80;
+      ctx.save();
+      ctx.shadowColor = '#F5D061';
+      ctx.shadowBlur = 25;
+      ctx.fillStyle = '#F5D061';
+      ctx.beginPath();
+      ctx.arc(cx, cy, size, 0, 2 * Math.PI);
+      ctx.fill();
+      ctx.shadowBlur = 0;
+      ctx.globalCompositeOperation = 'destination-out';
+      ctx.beginPath();
+      ctx.arc(cx + size * 0.4, cy - size * 0.1, size * 0.7, 0, 2 * Math.PI);
+      ctx.fill();
+      ctx.restore();
+    }
+
+    function startSpeechRecognition() {
+      var SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+      if (!SpeechRecognition) return;
+      var rec = new SpeechRecognition();
+      rec.continuous = true;
+      rec.interimResults = true;
+      rec.lang = 'en-US';
+      rec.onresult = function(e) {
+        for (var i = e.resultIndex; i < e.results.length; i++) {
+          var transcript = (e.results[i][0].transcript || '').toLowerCase();
+          if (e.results[i].isFinal && /ramadan/.test(transcript)) {
+            crescentUntil = Date.now() + 2500;
+          }
+        }
+      };
+      rec.start();
+      rec.onend = function() { rec.start(); };
+    }
+    startSpeechRecognition();
 
     window.onkeydown = function(e) {
       if (e.key == 'Shift') shift = true;
@@ -55,6 +93,10 @@
           else ctx.lineTo(arr[i][j].x, arr[i][j].y);
         }
         ctx.stroke();
+      }
+
+      if (Date.now() < crescentUntil) {
+        drawCrescent(ctx, c.width / 2, c.height / 2, 100);
       }
 
       if (res.multiHandLandmarks && res.multiHandLandmarks.length > 0) {
