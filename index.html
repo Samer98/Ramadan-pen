@@ -5,6 +5,7 @@
   <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js" crossorigin="anonymous"></script>
   <script src="https://cdn.jsdelivr.net/npm/@mediapipe/drawing_utils/drawing_utils.js" crossorigin="anonymous"></script>
   <script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands/hands.js" crossorigin="anonymous"></script>
+  <script src="https://cdn.jsdelivr.net/npm/tesseract.js@4/dist/tesseract.min.js" crossorigin="anonymous"></script>
   <style>
     body { margin: 0; background: #050301; overflow: hidden; }
     video { display: none; }
@@ -25,6 +26,113 @@
     var sx = null;
     var sy = null;
     var crescentUntil = 0;
+
+    function detectDrawnShape(points) {
+      if (!points || points.length < 3) {
+        if (points && points.length === 1) return { label: 'dot', emoji: 'white_circle' };
+        if (points && points.length === 2) return { label: 'line', emoji: null };
+        return { label: 'unknown', emoji: null };
+      }
+      var n = points.length;
+      var minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+      var pathLen = 0;
+      for (var i = 0; i < n; i++) {
+        var p = points[i];
+        if (p.x < minX) minX = p.x;
+        if (p.y < minY) minY = p.y;
+        if (p.x > maxX) maxX = p.x;
+        if (p.y > maxY) maxY = p.y;
+        if (i > 0) {
+          var dx = p.x - points[i - 1].x, dy = p.y - points[i - 1].y;
+          pathLen += Math.sqrt(dx * dx + dy * dy);
+        }
+      }
+      var w = maxX - minX, h = maxY - minY;
+      if (w < 2 && h < 2) return { label: 'dot', emoji: 'white_circle' };
+      var first = points[0], last = points[n - 1];
+      var distFirstLast = Math.hypot(last.x - first.x, last.y - first.y);
+      var diag = Math.hypot(w, h) || 1;
+      var closed = distFirstLast < diag * 0.3;
+      var aspect = Math.max(w, h) / (Math.min(w, h) || 1);
+      var compactness = (w + w + h + h) / (pathLen || 1);
+      if (aspect > 4 && compactness < 0.5) return { label: 'line', emoji: null };
+      if (closed && aspect < 1.8 && compactness > 0.4 && pathLen > diag * 2) return { label: 'circle', emoji: 'full_moon' };
+      if (closed && aspect < 1.8 && pathLen > diag * 1.5) return { label: 'oval', emoji: 'large_yellow_circle' };
+      var avgLen = pathLen / n;
+      if (closed && avgLen < 15 && n > 5) return { label: 'star-like', emoji: 'star' };
+      return { label: 'scribble', emoji: null };
+    }
+
+    function logDetection(shape) {
+      if (shape.emoji) {
+        console.log('Detected: :' + shape.emoji + ':');
+      } else {
+        console.log('Detected: ' + shape.label);
+      }
+    }
+
+    var ocrPending = false;
+    var wordToEmoji = { star: 'star', moon: 'full_moon', heart: 'heart', sun: 'sun_with_face', ramadan: 'crescent_moon' };
+
+    function captureDrawingForOCR() {
+      if (arr.length === 0) return null;
+      var minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+      for (var i = 0; i < arr.length; i++) {
+        for (var j = 0; j < arr[i].length; j++) {
+          var p = arr[i][j];
+          if (p.x < minX) minX = p.x;
+          if (p.y < minY) minY = p.y;
+          if (p.x > maxX) maxX = p.x;
+          if (p.y > maxY) maxY = p.y;
+        }
+      }
+      var pad = 40;
+      var w = Math.max(100, maxX - minX + pad * 2);
+      var h = Math.max(50, maxY - minY + pad * 2);
+      var off = document.createElement('canvas');
+      off.width = w;
+      off.height = h;
+      var octx = off.getContext('2d');
+      octx.fillStyle = '#FFFFFF';
+      octx.fillRect(0, 0, w, h);
+      octx.strokeStyle = '#000000';
+      octx.lineWidth = 8;
+      octx.lineCap = 'round';
+      octx.lineJoin = 'round';
+      for (var i = 0; i < arr.length; i++) {
+        octx.beginPath();
+        for (var j = 0; j < arr[i].length; j++) {
+          var px = arr[i][j].x - minX + pad;
+          var py = arr[i][j].y - minY + pad;
+          if (j === 0) octx.moveTo(px, py);
+          else octx.lineTo(px, py);
+        }
+        octx.stroke();
+      }
+      return off;
+    }
+
+    function recognizeWords() {
+      if (typeof Tesseract === 'undefined' || ocrPending || arr.length === 0) return;
+      var img = captureDrawingForOCR();
+      if (!img) return;
+      ocrPending = true;
+      Tesseract.recognize(img, 'eng', { logger: function() {} })
+        .then(function(result) {
+          var text = (result.data.text || '').trim().replace(/\s+/g, ' ');
+          ocrPending = false;
+          if (text.length > 0) {
+            var lower = text.toLowerCase();
+            var emojiName = wordToEmoji[lower] || (text.length < 30 ? null : null);
+            if (emojiName) {
+              console.log('Detected: :' + emojiName + ':');
+            } else {
+              console.log('Detected: ' + text);
+            }
+          }
+        })
+        .catch(function() { ocrPending = false; });
+    }
 
     function drawCrescent(ctx, cx, cy, size) {
       size = size || 80;
@@ -133,6 +241,11 @@
           }
           cur.push({x: sx, y: sy});
         } else {
+          if (draw && cur.length > 0) {
+            var shape = detectDrawnShape(cur);
+            logDetection(shape);
+            recognizeWords();
+          }
           draw = false;
         }
       } else {
