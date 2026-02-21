@@ -79,6 +79,28 @@
     #share-box .share-actions { display: flex; gap: 10px; flex-wrap: wrap; }
     #share-box button:hover { opacity: 0.9; }
     #share-box button:active { opacity: 0.85; }
+    #stop-recording-btn {
+      display: none;
+      position: fixed;
+      bottom: 20px;
+      left: 50%;
+      transform: translateX(-50%);
+      z-index: 10;
+      padding: 10px 20px;
+      border-radius: 8px;
+      border: none;
+      background: rgba(229, 57, 53, 0.9);
+      color: #fff;
+      font-family: sans-serif;
+      font-size: 14px;
+      font-weight: 600;
+      cursor: pointer;
+      -webkit-tap-highlight-color: transparent;
+      touch-action: manipulation;
+    }
+    #stop-recording-btn.visible { display: block; }
+    #stop-recording-btn:hover { opacity: 0.95; }
+    #stop-recording-btn:active { transform: translateX(-50%) scale(0.98); }
     #watch-page {
       display: none;
       position: fixed;
@@ -223,7 +245,27 @@
         min-height: 80px;
         font-size: 18px;
         bottom: 24px;
-        left: 24px;
+        left: 50%;
+        transform: translateX(-50%);
+      }
+      #share-box {
+        left: 50%;
+        right: auto;
+        transform: translateX(-50%);
+        bottom: 100px;
+        text-align: center;
+      }
+      #share-box .share-actions {
+        justify-content: center;
+      }
+      #stop-recording-btn {
+        bottom: 24px;
+      }
+      body.stop-recording-visible #clear-draw-btn {
+        display: none !important;
+      }
+      #share-box.visible ~ #clear-draw-btn {
+        display: none !important;
       }
     }
   </style>
@@ -253,8 +295,10 @@
       <button type="button" id="share-btn">Share</button>
       <button type="button" id="copy-share-btn">Copy link</button>
       <button type="button" id="download-btn">Download</button>
+      <button type="button" id="start-over-btn">Start over</button>
     </div>
   </div>
+  <button type="button" id="stop-recording-btn" aria-label="Stop recording">Stop recording</button>
   <button type="button" id="clear-draw-btn" aria-label="Clear drawing and cancel recording">Clear</button>
   <div id="watch-page" aria-label="Watch recording">
     <video id="watch-video" controls playsinline></video>
@@ -342,12 +386,14 @@
     var shareBtn = null;
     var copyShareBtn = null;
     var downloadBtn = null;
+    var startOverBtn = null;
     function showShareBox(shareUrl, filename, publicUrl) {
       if (!shareBox) shareBox = document.getElementById('share-box');
       if (!shareLinkText) shareLinkText = document.getElementById('share-link-text');
       if (!shareBtn) shareBtn = document.getElementById('share-btn');
       if (!copyShareBtn) copyShareBtn = document.getElementById('copy-share-btn');
       if (!downloadBtn) downloadBtn = document.getElementById('download-btn');
+      if (!startOverBtn) startOverBtn = document.getElementById('start-over-btn');
       if (shareUrl) {
         shareLinkText.textContent = shareUrl;
         shareBox.classList.add('visible');
@@ -375,6 +421,13 @@
           }).catch(function() {
             window.open(publicUrl, '_blank');
           });
+        };
+        startOverBtn.onclick = function() {
+          arr = [];
+          cur = [];
+          draw = false;
+          sx = null;
+          shareBox.classList.remove('visible');
         };
       } else {
         shareBox.classList.remove('visible');
@@ -424,8 +477,9 @@
       function isShareBoxOrButton(target) {
         var box = document.getElementById('share-box');
         var clearBtn = document.getElementById('clear-draw-btn');
+        var stopBtn = document.getElementById('stop-recording-btn');
         if (!target || !target.closest) return false;
-        return (box && target.closest('#share-box')) || (clearBtn && target === clearBtn);
+        return (box && target.closest('#share-box')) || (clearBtn && target === clearBtn) || (stopBtn && target === stopBtn);
       }
       document.addEventListener('touchstart', function(e) {
         if (isInstructionsVisible()) return;
@@ -454,6 +508,15 @@
         discardCurrentRecording();
       };
     })();
+    (function initStopRecordingBtn() {
+      var btn = document.getElementById('stop-recording-btn');
+      if (!btn) return;
+      btn.onclick = function() {
+        if (mediaRecorder && mediaRecorder.state === 'recording') {
+          mediaRecorder.stop();
+        }
+      };
+    })();
 
     function generateUUID() {
       if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
@@ -465,6 +528,19 @@
       });
     }
 
+    var stopRecordingBtn = null;
+    function setStopRecordingVisible(visible) {
+      if (!stopRecordingBtn) stopRecordingBtn = document.getElementById('stop-recording-btn');
+      if (stopRecordingBtn) {
+        if (visible) {
+          stopRecordingBtn.classList.add('visible');
+          document.body.classList.add('stop-recording-visible');
+        } else {
+          stopRecordingBtn.classList.remove('visible');
+          document.body.classList.remove('stop-recording-visible');
+        }
+      }
+    }
     function discardCurrentRecording() {
       if (!isRecording || !mediaRecorder) return;
       if (mediaRecorder.state === 'recording') {
@@ -481,6 +557,7 @@
       cancelIdleStopCountdown();
       hideIndicator();
       showShareBox(null);
+      setStopRecordingVisible(false);
     }
 
     function startScreenRecording() {
@@ -498,6 +575,7 @@
       mediaRecorder = new MediaRecorder(recordingStream, options);
       mediaRecorder.ondataavailable = function(e) { if (e.data.size > 0) recordingChunks.push(e.data); };
       mediaRecorder.onstop = function() {
+        setStopRecordingVisible(false);
         if (recordingStream) {
           recordingStream.getTracks().forEach(function(t) { t.stop(); });
           recordingStream = null;
@@ -547,6 +625,7 @@
       isRecording = true;
       cancelIdleStopCountdown();
       updateIndicator('recording', 'Recording');
+      setStopRecordingVisible(true);
     }
 
     function scheduleRecordingStopAfterIdle() {
