@@ -393,7 +393,15 @@
 
     (function initScreenHold() {
       function setHeld(value) { screenHeld = value; }
-      document.addEventListener('touchstart', function(e) { e.preventDefault(); setHeld(true); }, { passive: false });
+      function isInstructionsVisible() {
+        var el = document.getElementById('instructions-overlay');
+        return el && !el.classList.contains('hidden');
+      }
+      document.addEventListener('touchstart', function(e) {
+        if (isInstructionsVisible()) return;
+        e.preventDefault();
+        setHeld(true);
+      }, { passive: false });
       document.addEventListener('touchend', function() { setHeld(false); });
       document.addEventListener('touchcancel', function() { setHeld(false); });
       document.addEventListener('mousedown', function() { setHeld(true); });
