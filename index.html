@@ -279,6 +279,37 @@
     }
     #clear-draw-btn:active { transform: scale(0.95); }
     #clear-draw-btn:hover { background: rgba(229, 57, 53, 0.5); }
+    #shift-draw-btn {
+      display: flex;
+      position: fixed;
+      bottom: 20px;
+      left: 100px;
+      z-index: 10;
+      min-width: 72px;
+      min-height: 72px;
+      padding: 0 18px;
+      border-radius: 50%;
+      border: none;
+      background: rgba(245, 208, 97, 0.35);
+      color: #F5D061;
+      font-family: sans-serif;
+      font-size: 16px;
+      font-weight: 600;
+      cursor: pointer;
+      box-shadow: 0 2px 16px rgba(0,0,0,0.4);
+      transition: background 0.2s, transform 0.1s;
+      -webkit-tap-highlight-color: transparent;
+      align-items: center;
+      justify-content: center;
+      touch-action: manipulation;
+    }
+    #shift-draw-btn:hover { background: rgba(245, 208, 97, 0.5); }
+    #shift-draw-btn.active {
+      background: rgba(245, 208, 97, 0.85);
+      color: #050301;
+      box-shadow: 0 0 20px rgba(245, 208, 97, 0.5);
+    }
+    #shift-draw-btn:active { transform: scale(0.95); }
     @media (max-width: 768px), (hover: none) {
       #clear-draw-btn {
         display: flex;
@@ -289,6 +320,11 @@
         bottom: 24px;
         left: 16px;
         transform: none;
+      }
+      #shift-draw-btn {
+        display: flex;
+        left: 96px;
+        bottom: 24px;
       }
       #share-box {
         left: 50%;
@@ -342,7 +378,13 @@
       body.stop-recording-visible #clear-draw-btn {
         display: none !important;
       }
+      body.stop-recording-visible #shift-draw-btn {
+        display: none !important;
+      }
       #share-box.visible ~ #clear-draw-btn {
+        display: none !important;
+      }
+      #share-box.visible ~ #shift-draw-btn {
         display: none !important;
       }
       #start-recording-btn.mobile-visible.visible {
@@ -355,13 +397,13 @@
   <div id="instructions-overlay" aria-label="How to use">
     <h2>Ramadan Pen — How to use</h2>
     <ul>
-      <li><strong>Draw:</strong> Move your finger in front of the camera. <strong>Hold</strong> the screen (touch or click and hold) to pause drawing; <strong>release</strong> to draw again.</li>
+      <li><strong>Draw:</strong> Move your finger in front of the camera. On desktop, <strong>hold the left <kbd>Shift</kbd> key</strong> to draw; release to stop. On mobile, tap the <strong>Shift</strong> button to toggle draw mode. You can still hold the screen to pause.</li>
       <li><strong>Clear & cancel:</strong> Press <kbd>Space</kbd> on desktop, or tap the <strong>Clear</strong> button on mobile.</li>
       <li><strong>Recording:</strong> Tap <strong>Start recording</strong> first—you’ll have 3 seconds to get ready—then draw. It stops automatically after a short idle. Each recording gets a unique link you can share.</li>
       <li><strong>Share:</strong> After a recording is saved, use Share, Copy link, or Download. Anyone who opens the link can watch the video.</li>
     </ul>
     <p class="hint">Make sure the camera can see your hand.</p>
-    <p class="hint mobile-hint"><strong>Hold the screen</strong> with your finger to stop drawing; release to draw again.</p>
+    <p class="hint mobile-hint">On mobile: use the <strong>Shift</strong> button to turn drawing on or off; hold the screen to pause.</p>
     <button type="button" id="dismiss-instructions">Got it — Start</button>
   </div>
   <video id="vid" playsinline muted autoplay></video>
@@ -383,6 +425,7 @@
   <button type="button" id="stop-recording-btn" aria-label="Stop recording">Stop recording</button>
   <button type="button" id="start-recording-btn" aria-label="Start recording" class="mobile-visible">Start recording</button>
   <button type="button" id="clear-draw-btn" aria-label="Clear drawing and cancel recording">Clear</button>
+  <button type="button" id="shift-draw-btn" aria-label="Toggle draw with Shift (hold to draw)">Shift</button>
   <div id="watch-page" aria-label="Watch recording">
     <video id="watch-video" controls playsinline></video>
     <div class="watch-title">Ramadan Pen recording</div>
@@ -436,6 +479,7 @@
     var arr = [];
     var cur = [];
     var shift = false;
+    var leftShiftHeld = false;
     var screenHeld = false;
     var draw = false;
     var sx = null;
@@ -566,10 +610,11 @@
       function isShareBoxOrButton(target) {
         var box = document.getElementById('share-box');
         var clearBtn = document.getElementById('clear-draw-btn');
+        var shiftBtn = document.getElementById('shift-draw-btn');
         var stopBtn = document.getElementById('stop-recording-btn');
         var startBtn = document.getElementById('start-recording-btn');
         if (!target || !target.closest) return false;
-        return (box && target.closest('#share-box')) || (clearBtn && target === clearBtn) || (stopBtn && target === stopBtn) || (startBtn && target === startBtn);
+        return (box && target.closest('#share-box')) || (clearBtn && target === clearBtn) || (shiftBtn && target === shiftBtn) || (stopBtn && target === stopBtn) || (startBtn && target === startBtn);
       }
       document.addEventListener('touchstart', function(e) {
         if (isInstructionsVisible()) return;
@@ -597,6 +642,20 @@
         arr = [];
         discardCurrentRecording();
       };
+    })();
+    (function initShiftDrawBtn() {
+      var btn = document.getElementById('shift-draw-btn');
+      if (!btn) return;
+      function updateShiftButtonState() {
+        var active = shift || leftShiftHeld;
+        if (active) btn.classList.add('active'); else btn.classList.remove('active');
+      }
+      btn.onclick = function() {
+        shift = !shift;
+        updateShiftButtonState();
+      };
+      window.addEventListener('keydown', function(e) { if (e.code === 'ShiftLeft' || e.key === 'Shift') updateShiftButtonState(); });
+      window.addEventListener('keyup', function(e) { if (e.code === 'ShiftLeft' || e.key === 'Shift') updateShiftButtonState(); });
     })();
     (function initStopRecordingBtn() {
       var btn = document.getElementById('stop-recording-btn');
@@ -962,7 +1021,7 @@
     startSpeechRecognition();
 
     window.onkeydown = function(e) {
-      if (e.key == 'Shift') shift = true;
+      if (e.code === 'ShiftLeft') leftShiftHeld = true;
       if (e.code == 'Space') {
         e.preventDefault();
         arr = [];
@@ -971,7 +1030,7 @@
     }
     
     window.onkeyup = function(e) {
-      if (e.key == 'Shift') shift = false;
+      if (e.code === 'ShiftLeft') leftShiftHeld = false;
     }
 
     function run(res) {
@@ -1020,7 +1079,7 @@
 
         ctx.beginPath();
         ctx.arc(sx, sy, 6, 0, 2 * Math.PI);
-        var canDraw = (shift || !screenHeld);
+        var canDraw = (leftShiftHeld || shift) && !screenHeld;
         if (canDraw) { 
           ctx.fillStyle = '#FFFFFF'; 
         } else { 
