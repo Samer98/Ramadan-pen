@@ -208,6 +208,7 @@
       color: rgba(255,255,255,0.9);
     }
     #instructions-overlay .hint { font-size: 13px; color: rgba(255,255,255,0.7); margin-bottom: 20px; }
+    #instructions-overlay .mobile-hint { display: none; }
     #instructions-overlay button {
       background: #F5D061;
       color: #050301;
@@ -236,6 +237,12 @@
       #instructions-overlay .hint {
         font-size: 16px;
         margin-bottom: 24px;
+      }
+      #instructions-overlay .mobile-hint {
+        display: block;
+        font-size: 15px;
+        color: rgba(255,255,255,0.85);
+        margin-bottom: 16px;
       }
       #instructions-overlay button {
         font-size: 18px;
@@ -354,6 +361,7 @@
       <li><strong>Share:</strong> After a recording is saved, use Share, Copy link, or Download. Anyone who opens the link can watch the video.</li>
     </ul>
     <p class="hint">Make sure the camera can see your hand.</p>
+    <p class="hint mobile-hint"><strong>Hold the screen</strong> with your finger to stop drawing; release to draw again.</p>
     <button type="button" id="dismiss-instructions">Got it — Start</button>
   </div>
   <video id="vid" playsinline muted autoplay></video>
