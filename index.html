@@ -37,6 +37,16 @@
     #recording-indicator.saved .rec-dot,
     #recording-indicator.countdown .rec-dot,
     #recording-indicator.error .rec-dot { display: none; }
+    #recording-indicator.countdown {
+      left: 50%;
+      right: auto;
+      bottom: 80px;
+      transform: translateX(-50%);
+      font-size: 20px;
+      font-weight: 600;
+      padding: 14px 24px;
+    }
+    body.countdown-active #start-recording-btn { display: none !important; }
     #share-box {
       display: none;
       position: fixed;
@@ -494,7 +504,7 @@
         if (overlay && !overlay.classList.contains('hidden')) {
           overlay.classList.add('hidden');
         }
-        if (typeof pendingCameraStart === 'function' && !isMobile) {
+        if (typeof pendingCameraStart === 'function') {
           pendingCameraStart();
           pendingCameraStart = null;
         }
@@ -569,6 +579,7 @@
         if (isRecording) return;
         recordingRequestedByUser = true;
         countdownInProgress = true;
+        if (btn) btn.classList.remove('visible');
         updateStartRecordingButtonVisibility();
         if (isMobile) {
           startCameraOnce();
@@ -616,6 +627,7 @@
 
     function startRecordingWithCountdown() {
       if (!isMobile || isRecording || !recordingRequestedByUser) return;
+      document.body.classList.add('countdown-active');
       var btn = document.getElementById('start-recording-btn');
       if (btn) { btn.disabled = true; }
       var sec = 3;
@@ -625,6 +637,7 @@
         if (sec <= 0) {
           countdownTimeoutIds = [];
           countdownInProgress = false;
+          document.body.classList.remove('countdown-active');
           if (btn) btn.disabled = false;
           hideIndicator();
           if (recordingRequestedByUser) startScreenRecording();
@@ -640,6 +653,7 @@
       countdownTimeoutIds.forEach(function(id) { clearTimeout(id); });
       countdownTimeoutIds = [];
       countdownInProgress = false;
+      document.body.classList.remove('countdown-active');
       recordingRequestedByUser = false;
       var btn = document.getElementById('start-recording-btn');
       if (btn) btn.disabled = false;
