@@ -265,11 +265,12 @@
     @media (max-width: 768px), (hover: none) {
       #clear-draw-btn {
         display: flex;
-        min-width: 80px;
-        min-height: 80px;
+        min-width: 72px;
+        min-height: 72px;
+        max-width: calc(50% - 24px);
         font-size: 18px;
         bottom: 24px;
-        left: 20px;
+        left: 16px;
         transform: none;
       }
       #share-box {
@@ -288,8 +289,9 @@
       #start-recording-btn.visible {
         display: flex !important;
         bottom: 24px;
-        right: 20px;
+        right: 16px;
         left: auto;
+        max-width: calc(50% - 24px);
         transform: none;
       }
       body.stop-recording-visible #clear-draw-btn {
@@ -396,6 +398,7 @@
 
     var isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini|Samsung/i.test(navigator.userAgent) || (navigator.maxTouchPoints && navigator.maxTouchPoints > 0);
     var isRecording = false;
+    var recordingRequestedByUser = false;
     var recordingStream = null;
     var mediaRecorder = null;
     var recordingChunks = [];
@@ -563,8 +566,12 @@
       if (!btn) return;
       btn.onclick = function() {
         if (isRecording) return;
-        if (isMobile) startRecordingWithCountdown();
-        else startScreenRecording();
+        recordingRequestedByUser = true;
+        if (isMobile) {
+          startRecordingWithCountdown();
+        } else {
+          startScreenRecording();
+        }
       };
     })();
 
@@ -604,7 +611,7 @@
     }
 
     function startRecordingWithCountdown() {
-      if (!isMobile || isRecording) return;
+      if (!isMobile || isRecording || !recordingRequestedByUser) return;
       var btn = document.getElementById('start-recording-btn');
       if (btn) { btn.disabled = true; }
       var sec = 3;
@@ -615,7 +622,7 @@
           countdownTimeoutIds = [];
           if (btn) btn.disabled = false;
           hideIndicator();
-          startScreenRecording();
+          if (recordingRequestedByUser) startScreenRecording();
           return;
         }
         updateIndicator('countdown', 'Get ready... ' + sec);
@@ -627,6 +634,7 @@
     function cancelStartRecordingCountdown() {
       countdownTimeoutIds.forEach(function(id) { clearTimeout(id); });
       countdownTimeoutIds = [];
+      recordingRequestedByUser = false;
       var btn = document.getElementById('start-recording-btn');
       if (btn) btn.disabled = false;
       hideIndicator();
@@ -653,7 +661,9 @@
     }
 
     function startScreenRecording() {
+      if (!recordingRequestedByUser) return;
       if (!window.MediaRecorder || (typeof c.captureStream !== 'function')) {
+        recordingRequestedByUser = false;
         updateIndicator('error', 'Not supported');
         setTimeout(hideIndicator, 3000);
         return;
@@ -715,6 +725,7 @@
       };
       mediaRecorder.start(200);
       isRecording = true;
+      recordingRequestedByUser = false;
       cancelIdleStopCountdown();
       updateIndicator('recording', 'Recording');
       setStopRecordingVisible(true);
