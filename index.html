@@ -156,6 +156,33 @@
       font-size: 16px;
     }
     #instructions-overlay button:hover { opacity: 0.9; }
+    @media (max-width: 768px), (hover: none) {
+      #instructions-overlay {
+        padding: 28px 20px;
+      }
+      #instructions-overlay h2 {
+        font-size: 1.75rem;
+        margin-bottom: 20px;
+      }
+      #instructions-overlay ul {
+        font-size: 18px;
+        line-height: 1.75;
+        max-width: 100%;
+        margin-bottom: 24px;
+      }
+      #instructions-overlay .hint {
+        font-size: 16px;
+        margin-bottom: 24px;
+      }
+      #instructions-overlay button {
+        font-size: 18px;
+        padding: 14px 28px;
+        min-height: 48px;
+        min-width: 200px;
+        -webkit-tap-highlight-color: transparent;
+        cursor: pointer;
+      }
+    }
     #clear-draw-btn {
       display: none;
       position: fixed;
@@ -348,10 +375,19 @@
     (function initInstructions() {
       var overlay = document.getElementById('instructions-overlay');
       var btn = document.getElementById('dismiss-instructions');
-      if (overlay && btn) {
-        btn.onclick = function() {
+      function dismiss() {
+        if (overlay && !overlay.classList.contains('hidden')) {
           overlay.classList.add('hidden');
-        };
+        }
+      }
+      if (overlay) {
+        overlay.addEventListener('click', dismiss);
+        if (btn) {
+          btn.addEventListener('click', function(e) {
+            e.stopPropagation();
+            dismiss();
+          });
+        }
       }
     })();
 
